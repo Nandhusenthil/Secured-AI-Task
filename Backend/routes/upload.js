@@ -8,22 +8,30 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 router.post("/upload", upload.single("image"), async (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+    const userText = req.body.text || ""; // text entered by user
+    let combinedText = userText;
 
-    const buffer = req.file.buffer;
-    const ocrResult = await runOCR(buffer);
-    const { found, redactedText } = detectAndRedactPII(ocrResult.text);
+    // OCR part
+    if (req.file) {
+      const ocrResult = await runOCR(req.file.buffer);
+      combinedText += " " + ocrResult.text;
+    }
+
+    // detect + redact
+    const { found, redactedText } = detectAndRedactPII(combinedText);
 
     res.json({
       success: true,
-      originalText: ocrResult.text,
+      originalText: combinedText.trim(),
       redactedText,
       pii: found
     });
 
   } catch (err) {
-    res.status(500).json({ error: "Processing failed", details: err.message });
+    console.error(err);
+    res.status(500).json({ error: "Processing failed" });
   }
 });
 
 export default router;
+    
